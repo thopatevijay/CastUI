@@ -1,0 +1,60 @@
+name: Update monorepo submodule pointer
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  update-submodule:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout CastUI (source)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "actions@github.com"
+
+      - name: Clone monorepo
+        env:
+          MONOREPO_REPO: ${{ secrets.MONOREPO_REPO }}
+        run: |
+          git clone https://x-access-token:${{ secrets.MONOREPO_PAT }}@github.com/${MONOREPO_REPO}.git monorepo
+          cd monorepo
+          git checkout main || git checkout -b main
+
+      - name: Update submodule to the latest CastUI commit
+        env:
+          CASTUI_REMOTE: ${{ github.repository }}
+        run: |
+          cd monorepo
+          git submodule init || true
+          git submodule update --init CastUI || true
+
+          cd CastUI
+          git remote remove origin || true
+          git remote add origin https://x-access-token:${{ secrets.MONOREPO_PAT }}@github.com/${{ github.repository }}.git || true
+          git fetch --all
+          git checkout ${GITHUB_SHA}
+          cd ..
+
+          git add CastUI
+
+      - name: Commit & push pointer update
+        env:
+          MONOREPO_REPO: ${{ secrets.MONOREPO_REPO }}
+        run: |
+          cd monorepo
+          if git diff --cached --quiet; then
+            echo "No submodule pointer change detected."
+            exit 0
+          fi
+          git commit -m "ci(sync): update CastUI submodule to ${GITHUB_SHA::7} (from CastUI repo)"
+          git push https://x-access-token:${{ secrets.MONOREPO_PAT }}@github.com/${MONOREPO_REPO}.git HEAD:main

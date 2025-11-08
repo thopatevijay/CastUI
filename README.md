@@ -2,7 +2,7 @@
 
 **Anchor IDL → UI Generator**
 
-> A CLI-first tool that reads an Anchor IDL and scaffolds an editable Next.js + TypeScript frontend with wallet integration, forms for instructions, and basic account viewers.
+_A CLI-first tool that reads an Anchor IDL and scaffolds an editable Next.js + TypeScript frontend with wallet integration, instruction forms, PDA helpers and account viewers._
 
 ---
 
@@ -11,28 +11,33 @@
 - [Features](#features)
 - [Quick Start](#quick-start)
 - [Installation](#installation)
-- [Usage](#usage)
-- [Architecture](#architecture)
+- [Usage & CLI Options](#usage)
 - [Technical Overview](#technical-overview)
+  - [Pipeline Overview](#pipeline-overview)
+  - [Intermediate Representation (IR)](#intermediate-representation-ir)
 - [Project Structure](#project-structure)
+- [Templates & Styling](#templates--styling)
+- [Generated App Layout](#generated-app-layout)
+- [Architecture](#architecture)
 - [Documentation](#documentation)
-- [Development](#development)
+- [Protocol POC Requirements (short)](#protocol-poc-requirements-short)
+- [Development & Testing](#development)
 - [Contributing & Roadmap](#contributing--roadmap)
-- [License](#license)
-
+- [License & Contact](#license)
 ---
 
 ## Features
 
 ### Core Capabilities
 
-- ✅ **IDL Parsing** - Parse Anchor IDL and normalize into an Intermediate Representation (IR)
-- ✅ **Next.js Scaffold** - Generate complete Next.js + TypeScript app scaffold wired to Anchor/Codama client
-- ✅ **Typed Forms** - Per-instruction forms with typed controls (pubkey, numeric, bool, string, vec)
-- ✅ **Account Management** - Account viewer pages and PDA derivation helpers
-- ✅ **Wallet Integration** - Seamless integration via `@solana/wallet-adapter` (Phantom support)
-- ✅ **Transaction Safety** - Preflight modal showing accounts, signers, and estimated fees
-- ✅ **LLM Suggestions** - Optional LLM adapter for UX suggestions (labels/placeholders/grouping) with manual approval
+- ✅ Parse Anchor IDL (via Codama adapter) → normalize to IR.
+- ✅ Deterministic mapping from IDL types → UI controls (address, number, toggle, list, enum, file, nested structs).
+- ✅ Generate runnable Next.js + TypeScript apps wired to Anchor/`@solana/web3.js`.
+- ✅ Wallet integration using `@solana/wallet-adapter` (Phantom + common adapters).
+- ✅ PDA derivation helpers and preflight confirmation modal (accounts, signers, fee estimate).
+- ✅ Templateable UI: default `shadcn` (Tailwind + shadcn wrappers) + `basic` (vanilla CSS) option.
+- ✅ Optional LLM-based UX suggestions (opt-in; manual review required).
+
 
 ### CLI Features
 
@@ -52,9 +57,7 @@ cd path/to/anchor-program
 anchor build
 
 # 2) Generate the UI
-npx castui \
-  --idl target/idl/<your_program>.json \
-  --out ./anchor-ui/<your_program>
+npx @castui/cli --idl target/idl/<your_program>.json --out ./anchor-ui/<your_program> --template shadcn --network devnet
 
 # 3) Start the generated app
 cd ./anchor-ui/<your_program>
@@ -73,7 +76,7 @@ yarn dev
 CastUI is distributed via npm and can be run directly without installation:
 
 ```bash
-npx castui --idl <path> --out <dir>
+npx @castui/cli --idl <path> --out <dir>
 ```
 
 Alternatively, install globally:
@@ -91,39 +94,37 @@ yarn global add castui
 ### CLI Options
 
 ```bash
-npx castui [options]
+npx @castui/cli --idl <path> --out <dir> [options]
 
 Options:
-  -i, --idl <path>      Path to Anchor IDL JSON 
-                        (default: ./target/idl/program.json)
-  -o, --out <dir>       Output directory 
-                        (default: ./anchor-ui)
-  --no-install          Do not run package manager install after generation
-  --template <name>     Template/theme to use (shadcn | basic)
-  --network <net>       Network: devnet | testnet | mainnet 
-                        (default: devnet)
-  --auto-llm            Automatically apply LLM suggestions 
-                        (default: false)
-  -h, --help            Display help information
+   -i, --idl <path>      Path to Anchor IDL JSON (default: ./target/idl/program.json)
+   -o, --out <dir>       Output directory (default: ./anchor-ui)
+   --template <name>     Template/theme (shadcn | basic) (default: shadcn)
+   --network <net>       Network: devnet | testnet | mainnet (default: devnet)
+   --no-install          Do not run package manager install after generation
+   --auto-llm            Automatically apply LLM suggestions (opt-in; default: false)
+   --llm-review          Open review step for LLM suggestions (opt-in)
+   -h, --help            Display help
+
 ```
 
 ### Examples
 
 ```bash
 # Basic usage with default options
-npx castui --idl target/idl/my_program.json
+npx @castui/cli --idl target/idl/my_program.json
 
 # Custom output directory
-npx castui --idl target/idl/my_program.json --out ./my-custom-ui
+npx @castui/cli --idl target/idl/my_program.json --out ./my-custom-ui
 
 # Generate for mainnet
-npx castui --idl target/idl/my_program.json --network mainnet
+npx @castui/cli --idl target/idl/my_program.json --network mainnet
 
 # Skip automatic installation
-npx castui --idl target/idl/my_program.json --no-install
+npx @castui/cli --idl target/idl/my_program.json --no-install
 
 # Use shadcn template
-npx castui --idl target/idl/my_program.json --template shadcn
+npx @castui/cli --idl target/idl/my_program.json --template shadcn
 ```
 
 ---
@@ -168,54 +169,163 @@ CastUI follows a modular architecture with clear separation of concerns:
 
 ## Technical Overview
 
+### Pipeline Overview
+
+High-level flow:
+
+```
+IDL JSON -> Parser (Codama) -> RootNode (AST) -> IR Mapper -> IR
+     IR -> Mapping Rules (type->ui) -> Render Context -> Renderer (EJS / ts-morph)
+     Renderer -> Write Next.js app files -> Generated App (wallet provider, pages, lib)
+
+```
+
+**Components**
+
+-   **CLI** (`@castui/cli`) — entrypoint, arg parsing, orchestration.
+    
+-   **Parser** — `@codama/nodes-from-anchor` adapter converts Anchor IDL → canonical AST.
+    
+-   **IR Mapper** — normalizes AST → `InstructionIR`, `ArgIR`, `AccountIR`.
+    
+-   **Mapping Rules Engine** — deterministic rules map IR types → UI control descriptors.
+    
+-   **Renderer** — EJS templates (fast MVP) or `ts-morph` (advanced) generate files.
+    
+-   **Generated App** — Next.js app with `_app.tsx` containing wallet adapter; pages/instruction provide forms; `lib/pdaHelpers.ts` exposes PDA functions.
+    
+
 ### Intermediate Representation (IR)
 
-**What is IR?**
+**IR** is the normalized JSON model used by renderers. It hides Anchor/IDL quirks and exposes a predictable schema to template code:
 
-The Intermediate Representation (IR) is a normalized, program-agnostic schema derived from the Anchor IDL. It abstracts out type differences and exposes a simple mapping for templates:
+Example IR fragment:
 
-- `pubkey` → `AddressInput`
-- `u64` → `BigIntNumber`
-- `bool` → `CheckboxInput`
-- `string` → `TextInput`
-- `vec<T>` → `ArrayInput`
+```json
+{
+  "instruction": "create_order",
+  "args": [
+    { "name": "price", "uiType": "BigIntNumber", "required": true, "hint": "lamports" },
+    { "name": "metadata", "uiType": "String", "required": false }
+  ],
+  "accounts": [
+    { "name": "payer", "role": "signer", "writable": true },
+    { "name": "order_account", "role": "pda", "seeds": [["orders"], ["user_pub"]] }
+  ],
+  "docs": "Creates an order..."
+}
 
-This abstraction allows the renderer to generate consistent UI components regardless of the underlying Anchor program structure.
+```
 
-### Parsing & Rendering Pipeline
+**IR Purpose**
 
-The generation process follows these steps:
-
-1. **Load IDL** - Read Anchor IDL from `target/idl/*.json`
-2. **Parse with Codama** - Convert IDL to RootNode, then map RootNode → IR
-3. **Map IR → Render Context** - Transform IR into pages, components, and helpers
-4. **Render Files** - Use EJS or ts-morph templates to generate Next.js app files
-5. **LLM Suggestions** (Optional) - Offer UX metadata suggestions (labels/placeholders) with manual approval
-
-### Protocol POC Requirements
-
-- ✅ CLI accepts IDL and outputs a runnable Next.js app
-- ✅ Wallet integration works (Phantom)
-
+-   Normalize IDL differences.
+    
+-   Abstract types to UI controls (`pubkey -> AddressInput`, `u64 -> BigIntNumber`).
+    
+-   Include derived metadata: signer/writable flags, PDA seeds, validators.
+    
+-   Keep parser and renderer decoupled.
+    
 ---
+
+## Templates & Styling
+
+**Default templates**:
+
+-   `templates/shadcn/` — Tailwind CSS + shadcn wrappers (recommended).
+    
+-   `templates/basic/` — simple CSS / CSS modules.
+    
+
+**shadcn template includes**:
+
+-   `tailwind.config.js`, `postcss.config.js`
+    
+-   Small `components/FormControls` wrappers for `Input`, `Select`, `Switch`, `Button`.
+    
+-   A `ui/` index exposing primitives used in generated pages.
+    
+
+**How styling is generated**
+
+-   Generator copies the chosen template into the `out` directory and injects pages/components based on IR.
+    
+-   For `shadcn`, generated project includes Tailwind + shadcn setup so developer runs `yarn install` then `yarn dev`.
+    
+----------
+
 
 ## Project Structure
 
 ```
 CastUI/
-├── docs/                    # Documentation files
-│   ├── Project_Proposal.pdf
-│   ├── User_Stories.pdf
-│   ├── system_context.svg
-│   ├── component_diagram.svg
-│   └── sequence_flow.svg
+├── docs/                    # Proposal, user stories, docs & diagrams
 ├── packages/
-│   └── generator/           # CLI package
-├── templates/               # EJS templates for pages and components
+│   └── cli/                 # CLI implementation -> @castui/cli
+├── templates/
+│   ├── shadcn/              # Tailwind + shadcn templates
+│   └── basic/               # Basic CSS templates
+├── tests/
+│   └── fixtures/            # sample IDL fixtures
+├── designs/                 # SVG diagrams (system/component/sequence)
+├── issues.json              # bulk issue import (optional)
 └── README.md
+
 ```
 
 ---
+
+## Generated App Layout
+
+Typical files produced:
+
+```
+anchor-ui/<program>/
+  package.json
+  next.config.js
+  tsconfig.json
+  tailwind.config.js (if template requires)
+  pages/
+    _app.tsx        <- WalletProvider (wallet adapter wiring)
+    index.tsx
+    instruction/<name>.tsx
+  lib/
+    anchorClient.ts <- Provider & Program setup
+    pdaHelpers.ts   <- derived PDA helpers
+  components/
+    FormControls/*
+    ConfirmModal.tsx
+  public/
+  .castui/metadata.json
+
+```
+
+**Runtime**
+
+-   `_app.tsx` sets up `ConnectionProvider` and `WalletProvider`.
+    
+-   Pages use generated Anchor/Codama client or `@project-serum/anchor` to call program methods.
+    
+-   Preflight modal shows accounts/signers and fee estimate before submitting.
+    
+----
+
+## Protocol POC Requirements (short)
+
+1.  CLI accepts an Anchor IDL JSON and outputs a runnable Next.js project.
+    
+2.  Generated app includes wallet integration (Phantom) and an instruction page for at least one instruction.
+    
+3.  PDA derivation helpers generated for known seed patterns.
+    
+4.  Preflight modal lists accounts & signers and requires confirmation.
+    
+5.  Generated project includes `.castui/metadata.json` (IDL hash, timestamp).
+    
+6.  No private keys are committed by default (`.gitignore` includes wallet files).
+
+----    
 
 ## Documentation
 
@@ -258,37 +368,40 @@ Interaction flow between components.
 
 ## Development
 
-### Prerequisites
+**Prereqs**
 
-- Node.js 18+ and npm/yarn
-- Anchor CLI installed
-- Basic understanding of Anchor programs and IDL
+-   Node.js 18+, Yarn or npm, Anchor CLI for building IDLs.
+    
 
-### Setup
+**Local dev flow**
 
-```bash
-# Clone the repository
-git clone https://github.com/thopatevijay/TURBIN3-Q4-25.git
-cd CastUI
+1.  `git clone https://github.com/thopatevijay/CastUI.git`.
+    
+2.  Implement features in `packages/cli` and templates in `templates/`.
+    
+3.  Quick smoke: `node packages/cli/bin/castui.js`.
+    
+4.  Link locally: `cd packages/cli && npm link` → `castui --help`.
+    
 
-# Install dependencies
-yarn install
+**Tests**
 
-# Development mode
-yarn dev
-```
+-   Unit tests (Jest): parser & mapper logic.
+    
+-   Integration tests: generate a project into a temp dir and assert files exist; optionally run `next build`.
+    
+-   E2E tests (Playwright): optional heavier tests for generated apps.
+    
 
-### Project Organization
+**CI**
 
-- `packages/generator/` - Contains the CLI implementation
-- `templates/` - EJS templates for pages and components
-- Uses `yarn workspace` or monorepo layout for development
+-   PRs run unit tests.
+    
+-   Tag pushes trigger publish workflow (if configured).
+    
+-   Integration tests optional/gated to avoid heavy CI runs.
+    
 
-### Building
-
-```bash
-yarn build
-```
 
 ---
 
@@ -296,15 +409,16 @@ yarn build
 
 We welcome contributions! Please see our contributing guidelines for more details.
 
-### Planned Features
+**Short-term roadmap**
 
-- 🔌 **Plugin Hooks** - Add plugin hooks for custom renderers
-- 📚 **Storybook Generation** - Generate Storybook stories for components
-- 🧪 **Testing** - Add Playwright tests for generated UIs
-- 🤖 **LLM Adapter** - Enhanced LLM adapter with review UI
-- 🎨 **Additional Templates** - More UI templates and themes
-- 📊 **Analytics** - Usage analytics and telemetry
-
+-   v0.1.0: Publish `@castui/cli` hello command.
+    
+-   v0.2.0: Parser + IR mapper + one-instruction generator + shadcn template.
+    
+-   v0.3.x: Preflight modal, PDA helpers, tests & CI.
+    
+-   Optional: LLM adapter + human review UI (opt-in).
+    
 ---
 
 ## License

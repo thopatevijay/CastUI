@@ -23,7 +23,7 @@ export async function renderToDir(
   outDir: string,
   opts: RenderOptions
 ): Promise<void> {
-  const templateDir = path.resolve(__dirname, '../../templates', opts.template);
+  const templateDir = path.resolve(__dirname, '../../../templates', opts.template);
 
   await fs.ensureDir(outDir);
   await fs.copy(templateDir, outDir, {

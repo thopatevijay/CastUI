@@ -1,0 +1,12 @@
+node_modules/
+.pnp.cjs
+.pnp.data.json
+/coverage
+/dist
+/build
+/tmp
+yarn-error.log
+*.log
+*.tgz
+.DS_Store
+instructions.md

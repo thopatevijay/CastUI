@@ -1,0 +1,20 @@
+{
+  "name": "@castui/cli",
+  "version": "0.1.0",
+  "description": "CastUI CLI - initial hello command",
+  "bin": {
+    "castui": "./bin/castui.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "start": "node ./bin/castui.js",
+    "test:smoke": "node ./bin/castui.js | grep 'Welcome to CastUI' || exit 1"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.2"
+  }
+}
+

@@ -1,0 +1,40 @@
+import React from "react";
+
+interface InstructionProps {
+  params?: Record<string, string>;
+}
+
+export default function <%= instruction.name.charAt(0).toUpperCase() + instruction.name.slice(1) %>Instruction(_props: InstructionProps) {
+  return (
+    <div>
+      <h2><%= instruction.name %></h2>
+      {instruction.docs && instruction.docs.length > 0 && (
+        <section>
+          {instruction.docs.map((doc, index) => (
+            <p key={index}>{doc}</p>
+          ))}
+        </section>
+      )}
+      <form>
+        {instruction.args.map((arg) => (
+          <div key={arg.name}>
+            <label htmlFor={arg.name}>{arg.name}</label>
+            <input id={arg.name} name={arg.name} required={arg.required} />
+          </div>
+        ))}
+      </form>
+      <section>
+        <h3>Accounts</h3>
+        <ul>
+          {instruction.accounts.map((account) => (
+            <li key={account.name}>
+              {account.name} — signer: {account.isSigner ? "yes" : "no"},{" "}
+              writable: {account.isWritable ? "yes" : "no"}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+

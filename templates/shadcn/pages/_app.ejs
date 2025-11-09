@@ -1,0 +1,17 @@
+import "@/styles/globals.css";
+import type { AppProps } from "next/app";
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <div>
+      <header>
+        <h1>CastUI Generated App</h1>
+        <p>Program ID: <%= programId %></p>
+      </header>
+      <main>
+        <Component {...pageProps} />
+      </main>
+    </div>
+  );
+}
+

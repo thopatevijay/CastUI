@@ -10,3 +10,4 @@ yarn-error.log
 *.tgz
 .DS_Store
 instructions.md
+packages/cli/dist

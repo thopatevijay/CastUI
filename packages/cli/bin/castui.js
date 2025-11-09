@@ -3,9 +3,18 @@
 const { Command } = require('commander');
 const fs = require('fs');
 const path = require('path');
-const pathToGenerate = path.resolve(__dirname, '../src/generate');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { generate } = require(pathToGenerate);
+const distGeneratePath = path.resolve(__dirname, '../dist/generate.js');
+
+let generate;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  ({ generate } = require(distGeneratePath));
+} catch (error) {
+  console.error(
+    'Unable to load compiled CLI sources. Please run "yarn workspace @castui/cli run build" first.'
+  );
+  process.exit(1);
+}
 
 const program = new Command();
 

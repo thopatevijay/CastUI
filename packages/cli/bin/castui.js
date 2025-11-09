@@ -3,6 +3,9 @@
 const { Command } = require('commander');
 const fs = require('fs');
 const path = require('path');
+const pathToGenerate = path.resolve(__dirname, '../src/generate');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { generate } = require(pathToGenerate);
 
 const program = new Command();
 
@@ -16,7 +19,7 @@ program
   .option('--no-install', 'skip install')
   .option('--auto-llm', 'apply llm suggestions automatically', false)
   .allowExcessArguments(false)
-  .action((opts) => {
+  .action(async (opts) => {
     const userArgs = process.argv.slice(2);
 
     if (userArgs.length === 0) {
@@ -43,14 +46,17 @@ program
       return;
     }
 
-    console.log('Options:', {
-      idl: idlPath,
-      out: opts.out,
-      template: opts.template,
-      network: opts.network,
-      install: opts.install,
-      autoLlm: opts.autoLlm
-    });
+    try {
+      await generate(idlPath, path.resolve(opts.out), {
+        template: opts.template,
+        programId: undefined,
+        noInstall: opts.install === false
+      });
+      console.log('Generation complete:', opts.out);
+    } catch (error) {
+      console.error('Generation failed:', error instanceof Error ? error.message : error);
+      process.exitCode = 1;
+    }
   });
 
 program.parseAsync(process.argv).catch((err) => {

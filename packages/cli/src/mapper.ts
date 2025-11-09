@@ -31,24 +31,56 @@ export interface InstructionIR {
   docs?: string[];
 }
 
-interface CodamaInstruction {
+type CodamaInstruction = {
   name: string;
   args?: any[];
   accounts?: any[];
   docs?: string[];
-}
+};
 
-interface CodamaRoot {
-  instructions: CodamaInstruction[];
-}
+type CodamaProgram = {
+  name: string;
+  instructions?: CodamaInstruction[];
+};
 
-export function mapRootNodeToIR(root: CodamaRoot): InstructionIR[] {
-  if (!root || !Array.isArray(root.instructions)) {
+type CodamaRoot = {
+  instructions?: CodamaInstruction[];
+  program?: CodamaProgram;
+  programs?: CodamaProgram[];
+};
+
+function extractInstructions(root: CodamaRoot): CodamaInstruction[] {
+  if (!root) {
     return [];
   }
 
-  return root.instructions.map((instruction) => {
-    const args = (instruction.args ?? []).map(mapArgument);
+  if (Array.isArray(root.instructions) && root.instructions.length > 0) {
+    return root.instructions;
+  }
+
+  if (Array.isArray(root.program?.instructions) && root.program?.instructions.length) {
+    return root.program.instructions;
+  }
+
+  if (Array.isArray(root.programs?.[0]?.instructions) && root.programs?.[0]?.instructions?.length) {
+    return root.programs[0].instructions ?? [];
+  }
+
+  return [];
+}
+
+export function mapRootNodeToIR(root: CodamaRoot): InstructionIR[] {
+  const instructions = extractInstructions(root);
+
+  if (!instructions.length) {
+    return [];
+  }
+
+  return instructions.map((instruction: any) => {
+    const rawArgs = instruction.arguments ?? instruction.args ?? [];
+    const args = rawArgs
+      .filter((arg: any) => arg.name !== 'discriminator')
+      .map(mapArgument);
     const accounts = (instruction.accounts ?? []).map(mapAccount);
 
     return {
@@ -60,8 +92,15 @@ export function mapRootNodeToIR(root: CodamaRoot): InstructionIR[] {
   });
 }
 
+function isOptionType(type: any): boolean {
+  if (!type) return false;
+  if (type.option || type.optional) return true;
+  if (typeof type === 'object' && type.kind === 'optionTypeNode') return true;
+  return false;
+}
+
 function mapArgument(arg: any): ArgIR {
-  const optional = Boolean(arg?.isOptional ?? arg?.optional ?? arg?.type?.option);
+  const optional = Boolean(arg?.isOptional ?? arg?.optional ?? isOptionType(arg?.type));
   const uiType = mapTypeToUi(arg?.type);
   const children = mapNestedArgs(arg?.type);
 
@@ -77,9 +116,9 @@ function mapArgument(arg: any): ArgIR {
 function mapAccount(account: any): AccountIR {
   return {
     name: account?.name ?? 'unknown',
-    isSigner: Boolean(account?.isSigner ?? account?.signer ?? account?.signer === true),
+    isSigner: Boolean(account?.isSigner ?? account?.signer === true),
     isWritable: Boolean(account?.isMut ?? account?.isWritable),
-    optional: Boolean(account?.optional),
+    optional: Boolean(account?.optional ?? account?.isOptional),
     role: account?.role,
     seeds: account?.seeds
   };
@@ -119,6 +158,36 @@ function mapTypeToUi(type: any): UiType {
   }
 
   if (typeof type === 'object') {
+    switch (type.kind) {
+      case 'publicKeyTypeNode':
+        return 'Address';
+      case 'booleanTypeNode':
+        return 'Toggle';
+      case 'stringTypeNode':
+      case 'utf8StringTypeNode':
+        return 'Text';
+      case 'numberTypeNode': {
+        const format = type.format;
+        if (['i64', 'u64', 'i128', 'u128', 'i256', 'u256'].includes(format)) {
+          return 'BigInt';
+        }
+        return 'Number';
+      }
+      case 'bytesTypeNode':
+      case 'setTypeNode':
+      case 'vectorTypeNode':
+      case 'arrayTypeNode':
+        return 'List';
+      case 'optionTypeNode':
+        return mapTypeToUi(type.item ?? type.type);
+      case 'enumTypeNode':
+        return 'Select';
+      case 'structTypeNode':
+        return 'Text';
+      default:
+        break;
+    }
+
     if (type.option) {
       return mapTypeToUi(type.option);
     }
@@ -142,6 +211,16 @@ function mapTypeToUi(type: any): UiType {
 function mapNestedArgs(type: any): ArgIR[] {
   if (!type || typeof type !== 'object') {
     return [];
+  }
+
+  if (type.kind === 'structTypeNode' && Array.isArray(type.fields)) {
+    return type.fields.map((field: any) =>
+      mapArgument({
+        name: field.name,
+        type: field.type,
+        docs: field.docs
+      })
+    );
   }
 
   if (type.struct && Array.isArray(type.struct.fields)) {

@@ -10,7 +10,8 @@
   },
   "scripts": {
     "start": "node ./bin/castui.js",
-    "test:smoke": "node ./bin/castui.js | grep 'Welcome to CastUI' || exit 1"
+    "test:smoke": "node ./bin/castui.js | grep 'Welcome to CastUI' || exit 1",
+    "test": "jest"
   },
   "license": "MIT",
   "dependencies": {
@@ -21,7 +22,11 @@
   },
   "devDependencies": {
     "@types/ejs": "^3.1.5",
-    "@types/node": "^24.10.0"
+    "@types/jest": "^29.5.12",
+    "@types/node": "^24.10.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.4.5"
   }
 }
 

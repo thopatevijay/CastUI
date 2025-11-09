@@ -4,7 +4,7 @@ import { mapRootNodeToIR } from '../mapper';
 
 describe('mapRootNodeToIR', () => {
   it('maps instructions, args, and accounts to IR', async () => {
-    const idlPath = path.resolve(__dirname, '../../../tests/fixtures/simple_idl.json');
+    const idlPath = path.resolve(__dirname, '../../../../tests/fixtures/simple_idl.json');
     const root = await parseIdlToRootNode(idlPath);
     const ir = mapRootNodeToIR(root as any);
 

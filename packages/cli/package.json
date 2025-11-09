@@ -12,6 +12,9 @@
     "start": "node ./bin/castui.js",
     "test:smoke": "node ./bin/castui.js | grep 'Welcome to CastUI' || exit 1"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.2"
+  }
 }
 

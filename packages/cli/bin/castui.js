@@ -47,7 +47,21 @@ program
     console.log(chalk.white('🎨 Template:'), chalk.green(options.template));
     console.log(chalk.white('🌐 Network:'), chalk.green(options.network));
 
-    
+    try {
+      const { generate } = require('../src/generate');
+      await generate(idlPath, options.out, options);
+      console.log(chalk.green.bold('\n✅ UI generated successfully!\n'));
+      console.log(chalk.white('Next steps:'));
+      console.log(chalk.cyan(`  cd ${options.out}`));
+      console.log(chalk.cyan('  npm install'));
+      console.log(chalk.cyan('  npm run dev\n'));
+    } catch (error) {
+      console.error(chalk.red('\n❌ Error generating UI:'), error.message);
+      if (process.env.DEBUG) {
+        console.error(error.stack);
+      }
+      process.exit(1);
+    }
   });
 
 program.parse(process.argv);

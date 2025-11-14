@@ -3,8 +3,8 @@ const path = require('path');
 const { parseIdlToRootNode } = require('./parser');
 const { mapRootNodeToIR } = require('./mapper');
 const { renderToDir } = require('./renderer');
-const chalk = require('chalk');
-
+const chalkImport = require('chalk');
+const chalk = chalkImport.default || chalkImport;
 async function generate(idlPath, outDir, options) {
   console.log(chalk.blue('\n📖 Parsing IDL...'));
   const root = await parseIdlToRootNode(idlPath);

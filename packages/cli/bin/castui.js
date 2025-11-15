@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 const { Command } = require('commander');
-const chalkImport = require('chalk');
-const chalk = chalkImport.default || chalkImport;
+const chalk = require('chalk');
 const path = require('path');
 const fs = require('fs-extra');
 
@@ -21,7 +20,7 @@ program
   .option('--llm-review', 'Enable LLM review mode', false)
   .action(async (options) => {
     console.log(chalk.cyan.bold('\n🎨 CastUI - Anchor IDL to UI Generator\n'));
-
+    
     if (!process.argv.slice(2).length) {
       console.log(chalk.yellow('Welcome to CastUI!'));
       console.log(chalk.white('\nUsage: castui --idl <path> --out <dir> [options]'));
@@ -36,7 +35,7 @@ program
     }
 
     const idlPath = path.resolve(options.idl);
-
+    
     if (!fs.existsSync(idlPath)) {
       console.error(chalk.red(`❌ Error: IDL file not found: ${idlPath}`));
       process.exit(1);
@@ -46,7 +45,7 @@ program
     console.log(chalk.white('📁 Output directory:'), chalk.green(options.out));
     console.log(chalk.white('🎨 Template:'), chalk.green(options.template));
     console.log(chalk.white('🌐 Network:'), chalk.green(options.network));
-
+    
     try {
       const { generate } = require('../src/generate');
       await generate(idlPath, options.out, options);

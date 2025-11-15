@@ -1,12 +1,17 @@
 {
   "name": "castui",
+  "version": "0.1.0",
   "private": true,
+  "description": "CastUI - Anchor IDL to UI Generator",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "build": "yarn workspaces run build",
-    "test": "yarn workspaces run test"
-  }
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "dev": "node packages/cli/bin/castui.js"
+  },
+  "keywords": ["anchor", "solana", "idl", "ui-generator", "nextjs"],
+  "author": "CastUI Contributors",
+  "license": "MIT"
 }
-
